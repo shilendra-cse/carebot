@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: carebot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: carebot_db
+      POSTGRES_USER: carebot_user
+      POSTGRES_PASSWORD: carebot_password
+    ports:
+      - "5435:5432" # Match the port in your .env file
+    volumes:
+      - carebot_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carebot_user -d carebot_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  carebot_postgres_data:
+    driver: local
