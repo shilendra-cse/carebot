@@ -1,7 +1,6 @@
 import { Response, NextFunction } from "express";
-import { auth } from "@/lib/auth.js";
-import { fromNodeHeaders } from "better-auth/node";
 import { AuthenticatedRequest } from "@/types/base.types";
+import { verifyToken } from "@/lib/jwt.js";
 
 export const requireAuth = async (
   req: AuthenticatedRequest,
@@ -9,21 +8,25 @@ export const requireAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers),
-    });
+    const authHeader = req.headers.authorization;
 
-    if(!session) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
+    if (!authHeader?.startsWith("Bearer ")) {
+      res.status(401).json({ status: 401, message: "Unauthorized", type: "error" });
+      return;
     }
 
-    req.user = session.user;
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+
+    req.user = {
+      id: payload.id,
+      email: payload.email,
+      name: payload.name,
+    };
 
     next();
   } catch (error) {
-    console.error("Failed to authenticate user:", error);
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ status: 401, message: "Invalid or expired token", type: "error" });
   }
 };
 

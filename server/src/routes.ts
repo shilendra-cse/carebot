@@ -1,8 +1,21 @@
-import { routes as apiRoutes } from './lib/ApiRouter';
+import express from 'express';
+import { protect } from './middleware/auth';
+import authRoutes from './resources/auth/routes';
 import chatRoutes from './resources/chat/routes';
+import symptomsRoutes from './resources/symptoms/routes';
+import medicationsRoutes from './resources/medications/routes';
+import appointmentsRoutes from './resources/appointments/routes';
+import moodRoutes from './resources/mood/routes';
+import historyRoutes, { allergyRoutes } from './resources/history/routes';
 
-// Mount the chat routes on the API router
-// The router already handles /chat, so we mount at root
-apiRoutes.use('/', chatRoutes);
+export const apiRouter = express.Router();
 
-console.log('✅ Chat routes mounted at /api/chat');
+apiRouter.use('/auth', authRoutes);
+
+apiRouter.use('/chat', protect, chatRoutes);
+apiRouter.use('/symptoms', protect, symptomsRoutes);
+apiRouter.use('/medications', protect, medicationsRoutes);
+apiRouter.use('/appointments', protect, appointmentsRoutes);
+apiRouter.use('/mood', protect, moodRoutes);
+apiRouter.use('/history', protect, historyRoutes);
+apiRouter.use('/allergies', protect, allergyRoutes);

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import 'dotenv/config';
 
-// Schema
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.string().transform(Number).default(4000),
@@ -14,26 +13,18 @@ const envSchema = z.object({
     DB_USER: z.string().default('carebot_user'),
     DB_PASSWORD: z.string().default('carebot_password'),
 
-    GOOGLE_CLIENT_ID: z.string(),
-    GOOGLE_CLIENT_SECRET: z.string(),
-
-    GITHUB_CLIENT_ID: z.string(),
-    GITHUB_CLIENT_SECRET: z.string(),
-
     FRONTEND_URL: z.string().optional(),
 
-    JWT_SECRET: z.string().optional(),
+    JWT_SECRET: z.string().default('carebot-dev-jwt-secret-change-in-production'),
 
     OPENAI_API_KEY: z.string().optional(),
 });
 
-// Get environment-specific values
 const getEnvValue = <T>(values: { development?: T; test?: T; production?: T }, fallback: T): T => {
     const env = process.env.NODE_ENV as 'development' | 'test' | 'production';
     return values[env] ?? fallback;
 };
 
-// Parse env
 const parseEnv = () => {
     try {
         const env = envSchema.parse(process.env);
@@ -45,16 +36,6 @@ const parseEnv = () => {
             },
             client: {
                 url: env.FRONTEND_URL,
-            },
-            auth: {
-                google: {
-                    clientId: env.GOOGLE_CLIENT_ID,
-                    clientSecret: env.GOOGLE_CLIENT_SECRET,
-                },
-                github: {
-                    clientId: env.GITHUB_CLIENT_ID,
-                    clientSecret: env.GITHUB_CLIENT_SECRET,
-                },
             },
             database: {
                 url:
@@ -88,7 +69,6 @@ const parseEnv = () => {
                         {
                             development: ['http://localhost:3000', 'http://localhost:5173'] as string[] | boolean,
                             test: false as string[] | boolean,
-                            // production: ['https://taskly.vercel.app'] as string[] | boolean,
                         },
                         false as string[] | boolean,
                     ),
@@ -100,7 +80,7 @@ const parseEnv = () => {
                     timeWindow: '15 minutes' as const,
                 },
                 jwt: {
-                    secret: getEnvValue({ development: 'development-secret', test: 'test-secret', production: 'production-secret' }, 'development-secret'),
+                    secret: env.JWT_SECRET,
                 },
                 openai: {
                     apiKey: env.OPENAI_API_KEY || 'sk-demo-key',
@@ -120,14 +100,10 @@ const parseEnv = () => {
     }
 };
 
-// Export validated config
 export const config = parseEnv();
 
-// Export inferred type for use elsewhere
 export type Config = typeof config;
 
-// Helper to check environment
 export const isDevelopment = config.server.environment === 'development';
 export const isProduction = config.server.environment === 'production';
 export const isTest = config.server.environment === 'test';
-

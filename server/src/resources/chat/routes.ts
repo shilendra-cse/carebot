@@ -1,12 +1,12 @@
 import express from "express";
-import { chatApi } from "./api/chat.api";
+import { chatApi, listChats, getChatById, deleteChat } from "./api/chat.api";
+import { wrapHandler } from "@/lib/wrapHandler.js";
 
 const router = express.Router();
 
-// Direct route registration for streaming endpoints
-router.post('/chat', (req, res, next) => {
-  console.log('🔥 Chat route hit!', req.path, req.method);
-  next();
-}, chatApi);
+router.get("/", wrapHandler(listChats));
+router.get("/:id", wrapHandler(getChatById));
+router.post("/", chatApi);
+router.delete("/:id", wrapHandler(deleteChat));
 
 export default router;

@@ -1,20 +1,21 @@
 import { Request, Response } from "express";
 
 export interface ApiResponse {
-    status: number;
-    message: string;
-    data?: any;
-    type: 'success' | 'error';
-  }
+  status: number;
+  message: string;
+  data?: any;
+  type: "success" | "error";
+}
 
 export interface AuthenticatedRequest extends Request {
-    user?: {
-        id: string;
-        email: string;
-    };
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+  };
 }
 
 export type ControllerFunction = (
-    req: Request | AuthenticatedRequest,
-    res: Response,
-) =>  Promise<ApiResponse>;
+  req: Request | AuthenticatedRequest,
+  res: Response
+) => Promise<ApiResponse>;
