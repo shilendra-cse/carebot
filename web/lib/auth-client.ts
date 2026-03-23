@@ -6,6 +6,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  onboardingCompleted: boolean;
 }
 
 export function getToken(): string | null {
@@ -32,6 +33,13 @@ function saveAuth(token: string, user: AuthUser) {
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+export function updateStoredUser(updates: Partial<AuthUser>) {
+  const current = getUser();
+  if (!current) return;
+  const updated = { ...current, ...updates };
+  localStorage.setItem(USER_KEY, JSON.stringify(updated));
 }
 
 export async function signUp(name: string, email: string, password: string) {

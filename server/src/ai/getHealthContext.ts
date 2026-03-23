@@ -1,4 +1,5 @@
 import { db } from "@/db/index.js";
+import { user } from "@/db/schema/auth-schema.js";
 import { symptoms } from "@/db/schema/symptoms-schema.js";
 import { medications } from "@/db/schema/medications-schema.js";
 import { appointments } from "@/db/schema/appointments-schema.js";
@@ -6,7 +7,16 @@ import { moodLogs } from "@/db/schema/mood-schema.js";
 import { medicalHistory, allergies } from "@/db/schema/medical-history-schema.js";
 import { eq, desc, and, gte } from "drizzle-orm";
 
+export interface UserProfile {
+  dateOfBirth: Date | null;
+  gender: string | null;
+  height: string | null;
+  weight: string | null;
+  bloodType: string | null;
+}
+
 export interface HealthContext {
+  profile: UserProfile | null;
   symptoms: any[];
   medications: any[];
   appointments: any[];
@@ -20,7 +30,14 @@ export async function getUserHealthContext(userId: string): Promise<HealthContex
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [userSymptoms, userMedications, userAppointments, userMood, userHistory, userAllergies] = await Promise.all([
+  const [userProfile, userSymptoms, userMedications, userAppointments, userMood, userHistory, userAllergies] = await Promise.all([
+    db.select({
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      height: user.height,
+      weight: user.weight,
+      bloodType: user.bloodType,
+    }).from(user).where(eq(user.id, userId)).limit(1),
     db.select().from(symptoms).where(eq(symptoms.userId, userId)).orderBy(desc(symptoms.createdAt)).limit(20),
     db.select().from(medications).where(eq(medications.userId, userId)).orderBy(desc(medications.createdAt)),
     db.select().from(appointments).where(
@@ -35,6 +52,7 @@ export async function getUserHealthContext(userId: string): Promise<HealthContex
   ]);
 
   return {
+    profile: userProfile[0] || null,
     symptoms: userSymptoms,
     medications: userMedications,
     appointments: userAppointments,
@@ -46,6 +64,23 @@ export async function getUserHealthContext(userId: string): Promise<HealthContex
 
 export function formatHealthContext(context: HealthContext): string {
   let contextText = "\n\n=== USER HEALTH DATA ===\n";
+
+  if (context.profile) {
+    const p = context.profile;
+    const parts: string[] = [];
+    if (p.gender) parts.push(`Gender: ${p.gender}`);
+    if (p.dateOfBirth) {
+      const age = Math.floor((Date.now() - new Date(p.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      parts.push(`Age: ${age}`);
+    }
+    if (p.height) parts.push(`Height: ${p.height}`);
+    if (p.weight) parts.push(`Weight: ${p.weight}`);
+    if (p.bloodType) parts.push(`Blood Type: ${p.bloodType}`);
+    if (parts.length > 0) {
+      contextText += "\nPATIENT PROFILE:\n";
+      parts.forEach(part => { contextText += `- ${part}\n`; });
+    }
+  }
 
   if (context.allergies.length > 0) {
     contextText += "\nALLERGIES:\n";

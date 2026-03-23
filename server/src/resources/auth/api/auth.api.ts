@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { db } from "@/db/index.js";
 import { user } from "@/db/schema/auth-schema.js";
+import { medicalHistory, allergies } from "@/db/schema/medical-history-schema.js";
+import { medications } from "@/db/schema/medications-schema.js";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcryptjs";
@@ -9,11 +11,9 @@ import { AuthenticatedRequest } from "@/types/base.types.js";
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log("gu kutte ka", req.body);
     const { name, email, password } = req.body;
 
-
-    if (password.length < 6) {
+    if (!password || password.length < 6) {
       res.status(400).json({
         status: 400,
         message: "Password must be at least 6 characters",
@@ -43,7 +43,12 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     const [newUser] = await db
       .insert(user)
       .values({ id, name, email, password: hashedPassword })
-      .returning({ id: user.id, name: user.name, email: user.email });
+      .returning({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        onboardingCompleted: user.onboardingCompleted,
+      });
 
     const token = signToken({ id: newUser.id, email: newUser.email, name: newUser.name });
 
@@ -108,7 +113,12 @@ export const signin = async (req: Request, res: Response): Promise<void> => {
       message: "Signed in successfully",
       data: {
         token,
-        user: { id: found.id, name: found.name, email: found.email },
+        user: {
+          id: found.id,
+          name: found.name,
+          email: found.email,
+          onboardingCompleted: found.onboardingCompleted,
+        },
       },
       type: "success",
     });
@@ -132,6 +142,7 @@ export const getMe = async (req: AuthenticatedRequest, res: Response): Promise<v
         name: user.name,
         email: user.email,
         image: user.image,
+        onboardingCompleted: user.onboardingCompleted,
         createdAt: user.createdAt,
       })
       .from(user)
@@ -160,5 +171,99 @@ export const getMe = async (req: AuthenticatedRequest, res: Response): Promise<v
       message: "Failed to get user",
       type: "error",
     });
+  }
+};
+
+export const completeOnboarding = async (req: any, _res: Response): Promise<any> => {
+  try {
+    const userId = req.user.id;
+    const { profile, conditions, meds, userAllergies } = req.body;
+
+    const profileUpdate: Record<string, unknown> = {
+      onboardingCompleted: true,
+    };
+    if (profile) {
+      if (profile.dateOfBirth) profileUpdate.dateOfBirth = new Date(profile.dateOfBirth);
+      if (profile.gender) profileUpdate.gender = profile.gender;
+      if (profile.height) profileUpdate.height = profile.height;
+      if (profile.weight) profileUpdate.weight = profile.weight;
+      if (profile.bloodType) profileUpdate.bloodType = profile.bloodType;
+    }
+
+    await db.update(user).set(profileUpdate).where(eq(user.id, userId));
+
+    if (Array.isArray(conditions) && conditions.length > 0) {
+      const rows = conditions
+        .filter((c: any) => c.condition?.trim())
+        .map((c: any) => ({
+          id: uuidv4(),
+          userId,
+          condition: c.condition.trim(),
+          treatment: c.treatment?.trim() || null,
+          notes: c.notes?.trim() || null,
+          diagnosisDate: c.diagnosisDate ? new Date(c.diagnosisDate) : null,
+        }));
+      if (rows.length > 0) {
+        await db.insert(medicalHistory).values(rows);
+      }
+    }
+
+    if (Array.isArray(meds) && meds.length > 0) {
+      const rows = meds
+        .filter((m: any) => m.name?.trim() && m.dosage?.trim() && m.frequency?.trim())
+        .map((m: any) => ({
+          id: uuidv4(),
+          userId,
+          name: m.name.trim(),
+          dosage: m.dosage.trim(),
+          frequency: m.frequency.trim(),
+          notes: m.notes?.trim() || null,
+          times: [],
+          active: true,
+        }));
+      if (rows.length > 0) {
+        await db.insert(medications).values(rows);
+      }
+    }
+
+    if (Array.isArray(userAllergies) && userAllergies.length > 0) {
+      const rows = userAllergies
+        .filter((a: any) => a.allergen?.trim())
+        .map((a: any) => ({
+          id: uuidv4(),
+          userId,
+          allergen: a.allergen.trim(),
+          reaction: a.reaction?.trim() || null,
+          severity: a.severity?.trim() || null,
+        }));
+      if (rows.length > 0) {
+        await db.insert(allergies).values(rows);
+      }
+    }
+
+    const [updated] = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        onboardingCompleted: user.onboardingCompleted,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    return {
+      status: 200,
+      message: "Onboarding completed successfully",
+      data: updated,
+      type: "success",
+    };
+  } catch (error) {
+    console.error("Onboarding error:", error);
+    return {
+      status: 500,
+      message: "Failed to complete onboarding",
+      type: "error",
+    };
   }
 };

@@ -77,6 +77,9 @@ export const healthApi = {
   // Chat
   sendMessage: (messages: any[], config = {}) =>
     api.post('/chat', { messages }, { ...config, responseType: 'text' }),
+
+  // Onboarding
+  completeOnboarding: (data: any) => api.post('/auth/onboarding', data),
 };
 
 export default api;

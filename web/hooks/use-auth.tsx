@@ -46,9 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isPublic = PUBLIC_PATHS.includes(pathname);
 
-    if (!user && !isPublic) {
+    if (!user && !isPublic && pathname !== "/onboarding") {
       router.replace("/signin");
     } else if (user && pathname === "/signin") {
+      if (!user.onboardingCompleted) {
+        router.replace("/onboarding");
+      } else {
+        router.replace("/dashboard");
+      }
+    } else if (user && !user.onboardingCompleted && pathname !== "/onboarding") {
+      router.replace("/onboarding");
+    } else if (user && user.onboardingCompleted && pathname === "/onboarding") {
       router.replace("/dashboard");
     }
   }, [user, isLoading, pathname, router]);
